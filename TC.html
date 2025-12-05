@@ -1,52 +1,599 @@
-<div class="space-y-6">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIS2 CyberCheck - Diagnostic de Conformité B2B</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Configuration de la palette et de la police */
+        :root {
+            --color-primary: #1e293b; /* Slate-900 */
+            --color-accent: #2563eb; /* Blue-600 */
+            --color-alert: #ef4444; /* Red-500 */
+        }
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            background-color: var(--color-primary);
+            color: white;
+        }
+        /* Style pour les cartes de sélection (Phase 1 & 2) */
+        .card-select {
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .card-select:hover {
+            border-color: #374151; /* Gray-700 */
+        }
+        .card-select.selected {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 sm:p-8">
 
-    <h2 class="text-2xl font-extrabold text-blue-400 border-b border-slate-700 pb-2">
-        POLITIQUE DE CONFIDENTIALITÉ (RGPD)
-    </h2>
-    
-    <p class="text-sm">
-        **Date d'entrée en vigueur :** <span class="text-white font-semibold">[Date du lancement de votre outil]</span>
-    </p>
+    <header class="w-full max-w-2xl py-4 flex justify-between items-center mb-8">
+        <h1 class="text-2xl font-bold text-white flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944c-1.25.17-2.484.5-3.67.986M5.632 8.79a9.965 9.965 0 00-1.89 3.031A12.001 12.001 0 0012 21c1.884 0 3.666-.356 5.344-1.002M4 15h16M4 18h16M4 21h16"></path></svg>
+            CyberCheck
+        </h1>
+        <div id="progress-container" class="w-2/3 h-2 bg-slate-700 rounded-full">
+            <div id="progress-bar" class="h-2 bg-blue-600 rounded-full transition-all duration-500" style="width: 0%;"></div>
+        </div>
+    </header>
 
-    <h3 class="text-xl font-bold text-white pt-2">1. Identité du Responsable du Traitement</h3>
-    <p class="text-sm leading-relaxed">
-        La société <span class="text-white font-semibold">[NOM DE VOTRE SOCIÉTÉ]</span>, dont le siège social est situé au <span class="text-white font-semibold">[ADRESSE]</span>, immatriculée sous le numéro <span class="text-white font-semibold">[SIREN/SIRET]</span>, est le responsable du traitement des données collectées via le questionnaire "CyberCheck" (ci-après, le "Service").
-    </p>
+    <main class="w-full max-w-2xl bg-slate-800 rounded-lg shadow-2xl p-6 sm:p-10">
 
-    <h3 class="text-xl font-bold text-white pt-2">2. Données Personnelles Collectées</h3>
-    <p class="text-sm leading-relaxed">
-        Nous collectons les données suivantes (ci-après les "Données") :
-    </p>
-    <ul class="list-disc list-inside ml-4 text-sm space-y-1">
-        <li><span class="font-semibold">Données d'identification et de contact :</span> Adresse e-mail professionnelle, numéro de téléphone mobile.</li>
-        <li><span class="font-semibold">Données professionnelles :</span> Fonction/Poste, nom de l'entreprise, effectif, chiffre d'affaires, secteur d'activité (issues du questionnaire).</li>
-        <li><span class="font-semibold">Données de diagnostic :</span> Réponses au questionnaire NIS2 et score de vulnérabilité calculé.</li>
-    </ul>
+        <div id="wizard-steps" class="space-y-6">
 
-    <h3 class="text-xl font-bold text-white pt-2">3. Finalités et Base Légale du Traitement</h3>
-    <p class="text-sm leading-relaxed">
-        Le traitement de vos Données est fondé sur votre <span class="font-semibold text-blue-400">Consentement</span> explicite (Article 6.1 a du RGPD), donné via la case à cocher obligatoire.
-    </p>
+            <div id="step-0" class="step">
+                <h2 class="text-4xl font-extrabold text-blue-400 mb-4">Directive NIS2 : Votre entreprise est-elle prête pour l'amende ?</h2>
+                <p class="text-xl text-slate-300 mb-8">Diagnostic de vulnérabilité et d'éligibilité en 2 minutes. Rapport d'action PDF offert à la fin.</p>
+                <div class="flex justify-center">
+                    <button onclick="nextStep(1)" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-xl transition duration-300 shadow-lg">
+                        Lancer le Scan de Conformité
+                    </button>
+                </div>
+            </div>
 
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left rounded-lg overflow-hidden border border-slate-700">
-            <thead class="text-xs text-white uppercase bg-slate-700">
-                <tr>
-                    <th scope="col" class="py-3 px-6">Finalité du Traitement</th>
-                    <th scope="col" class="py-3 px-6">Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="bg-slate-800 border-b border-slate-700">
-                    <td class="py-3 px-6 font-medium text-white">A. Envoi du Diagnostic NIS2</td>
-                    <td class="py-3 px-6">Fournir le rapport d'audit (PDF) et les recommandations personnalisées suite au questionnaire.</td>
-                </tr>
-                <tr class="bg-slate-800 border-b border-slate-700">
-                    <td class="py-3 px-6 font-medium text-white">B. Prospection Commerciale et Revente</td>
-                    <td class="py-3 px-6 text-red-400 font-bold">
-                        Partager ou revendre vos Données à des tiers, y compris des courtiers, des partenaires commerciaux spécialisés en cybersécurité ou des agences de marketing B2B, pour leurs propres fins de prospection commerciale.
-                    </td>
-                </tr>
-                <tr class="bg-slate-800">
-                    <td class="py-3 px-6 font-medium text-white">C. Amélioration du Service</td>
-                    <td class="py-3 px-6">Analyser les tendances de conformité et améliorer la qualité de notre
+            <div id="step-1" class="step hidden">
+                <h3 class="text-2xl font-semibold mb-6">Phase 1/3 : Profil de votre organisation</h3>
+                <div class="space-y-8">
+                    <div data-q="effectif">
+                        <p class="text-lg font-medium mb-3">1. Quel est l'effectif de votre entreprise ?</p>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="<50">PME (< 50)</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="50-249">ETI (50-249)</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value=">=250">Grand Groupe (≥ 250)</div>
+                        </div>
+                    </div>
+                    <div data-q="ca">
+                        <p class="text-lg font-medium mb-3">2. Quel est votre Chiffre d'Affaires annuel ?</p>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="<10M">Moins de 10M€</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="10M-50M">10M€ à 50M€</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value=">50M">Plus de 50M€</div>
+                        </div>
+                    </div>
+                    <div data-q="secteur">
+                        <p class="text-lg font-medium mb-3">3. Votre secteur d'activité est-il considéré comme critique ?</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center text-sm" data-value="Energie">Énergie</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center text-sm" data-value="Transport">Transport</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center text-sm" data-value="Sante/Finance">Santé/Finance</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center text-sm" data-value="Numerique/Data">Numérique/Data</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center text-sm" data-value="Industrie">Industrie</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center text-sm" data-value="Eau/Dechet">Eau/Déchets</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center text-sm" data-value="Autre">Autre (Non critique)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-8">
+                    <button onclick="nextStep(2)" id="btn-step-1" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 opacity-50 cursor-not-allowed" disabled>
+                        Continuer
+                    </button>
+                </div>
+            </div>
+
+            <div id="step-2" class="step hidden">
+                <h3 class="text-2xl font-semibold mb-6">Phase 2/3 : Maturité & Qualification Cyber</h3>
+                <div class="space-y-8">
+                    <div data-q="rto">
+                        <p class="text-lg font-medium mb-3">4. Si vos serveurs sont cryptés par un ransomware, en combien de temps pouvez-vous restaurer l'activité ?</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="<4h">Moins de 4 heures</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="24h-48h">24h à 48 heures</div>
+                            <div class="card-select p-4 rounded-lg bg-red-800/50 text-center" data-value="PasDePlan">Je ne sais pas / Pas de plan fiable</div>
+                        </div>
+                    </div>
+                    <div data-q="gestion_cyber">
+                        <p class="text-lg font-medium mb-3">5. Qui gère la cybersécurité de votre entreprise aujourd'hui ?</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="DSI_Interne">Service DSI Interne</div>
+                            <div class="card-select p-4 rounded-lg bg-slate-700 text-center" data-value="MSP_Externe">Un prestataire externe (MSP)</div>
+                            <div class="card-select p-4 rounded-lg bg-blue-800/50 text-center" data-value="Dirigeant_NonDedicace">Personne de dédié / Le dirigeant</div>
+                        </div>
+                    </div>
+                    <div data-q="mfa">
+                        <p class="text-lg font-medium mb-3">6. Avez-vous mis en place l'Authentification Multifacteur (MFA) sur tous les accès distants ?</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="card-select p-4 rounded-lg bg-green-700/50 text-center" data-value="Oui">Oui, partout</div>
+                            <div class="card-select p-4 rounded-lg bg-yellow-700/50 text-center" data-value="Partiel">Partiellement</div>
+                            <div class="card-select p-4 rounded-lg bg-red-800/50 text-center" data-value="Non">Non, mot de passe simple</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-8">
+                    <button onclick="nextStep(3)" id="btn-step-2" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 opacity-50 cursor-not-allowed" disabled>
+                        Voir les Résultats
+                    </button>
+                </div>
+            </div>
+
+            <div id="step-3" class="step hidden">
+                <div id="loading-animation" class="text-center space-y-4">
+                    <svg class="animate-spin h-10 w-10 text-blue-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p id="loading-text" class="text-xl">Analyse des réponses en cours...</p>
+                </div>
+
+                <div id="lead-gate" class="hidden text-center">
+                    <h4 class="text-3xl font-extrabold text-red-500 mb-4">RÉSULTAT : VOTRE ENTREPRISE PRÉSENTE UN RISQUE ÉLEVÉ</h4>
+                    <p class="text-xl text-slate-300 mb-8">Pour débloquer votre Score de Vulnérabilité détaillé et recevoir votre Plan d'Action NIS2 (PDF) par e-mail, confirmez l'envoi :</p>
+
+                    <form id="lead-form" class="space-y-4">
+                        <input type="email" id="email" placeholder="Email Professionnel (ex: @monentreprise.com)" required class="w-full p-3 rounded bg-slate-700 border border-slate-600 focus:ring-blue-600 focus:border-blue-600 text-white">
+                        <input type="tel" id="phone" placeholder="Numéro de téléphone mobile" required class="w-full p-3 rounded bg-slate-700 border border-slate-600 focus:ring-blue-600 focus:border-blue-600 text-white">
+                        <select id="fonction" required class="w-full p-3 rounded bg-slate-700 border border-slate-600 focus:ring-blue-600 focus:border-blue-600 text-white">
+                            <option value="">-- Votre Fonction --</option>
+                            <option value="PDG">PDG / Gérant</option>
+                            <option value="DSI">DSI / RSI</option>
+                            <option value="DAF">DAF / Directeur Administratif</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                        <div class="flex items-start pt-2">
+                            <input type="checkbox" id="consent" required class="mt-1 mr-2 rounded text-blue-600 focus:ring-blue-500">
+                            <label for="consent" class="text-sm text-slate-400">
+                                J'ai lu et j'accepte les 
+                                <a href="#politique-confidentialite" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-semibold">
+                                    Conditions Générales d'Utilisation et la Politique de Confidentialité
+                                </a>. (Obligatoire)
+                            </label>
+                        </div>
+                        <p id="validation-error" class="text-red-400 text-sm hidden">Veuillez vérifier les informations (email pro requis).</p>
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-300 mt-4">
+                            Voir mon Résultat & Recevoir le PDF
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="step-4" class="step hidden">
+                <h3 class="text-3xl font-bold mb-6 text-blue-400">Votre Rapport de Conformité (Synthèse)</h3>
+                
+                <div class="bg-slate-700 p-6 rounded-lg space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-600 pb-3">
+                        <span class="text-xl font-medium">Statut d'Éligibilité NIS2 Probable :</span>
+                        <span id="nis2-status" class="text-2xl font-extrabold text-orange-400">Entité Importante</span>
+                    </div>
+
+                    <div class="pt-4">
+                        <p class="text-xl font-medium mb-2">Score de Vulnérabilité (100 = Zéro risque) :</p>
+                        <div id="score-gauge" class="w-full h-8 bg-slate-600 rounded-full overflow-hidden">
+                            <div id="score-bar" class="h-8 rounded-full transition-all duration-700 flex items-center justify-end pr-3 font-bold" style="width: 35%; background-color: var(--color-alert);">
+                                <span id="score-text">35 / 100</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h4 class="text-2xl font-semibold mb-3">Recommandations & Prochaines Étapes :</h4>
+                    <ul id="recommendations" class="list-disc list-inside space-y-2 text-slate-300 pl-4">
+                        <li>Votre rapport PDF détaillé a été envoyé à l'adresse <span id="final-email" class="font-bold text-blue-400"></span>.</li>
+                        <li class="text-red-400 font-bold">URGENCE : Activation immédiate du MFA. Le score est critique sur ce point.</li>
+                        <li id="recommendation-rto">Audit de votre Plan de Reprise d'Activité (PRA) et test des sauvegardes déconnectées.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <section id="politique-confidentialite" class="w-full max-w-2xl mt-12 p-6 bg-slate-800 rounded-lg text-sm text-slate-400">
+        <h2 class="text-xl font-bold mb-4 text-blue-400">Politique de Confidentialité et Conditions Générales d'Utilisation</h2>
+        <div class="space-y-6">
+            <h2 class="text-2xl font-extrabold text-blue-400 border-b border-slate-700 pb-2">
+                POLITIQUE DE CONFIDENTIALITÉ (RGPD)
+            </h2>
+            <p class="text-sm">
+                **Date d'entrée en vigueur :** <span class="text-white font-semibold">[Date du lancement de votre outil]</span>
+            </p>
+            <h3 class="text-xl font-bold text-white pt-2">1. Identité du Responsable du Traitement</h3>
+            <p class="text-sm leading-relaxed">
+                La société <span class="text-white font-semibold">[NOM DE VOTRE SOCIÉTÉ]</span>, dont le siège social est situé au <span class="text-white font-semibold">[ADRESSE]</span>, immatriculée sous le numéro <span class="text-white font-semibold">[SIREN/SIRET]</span>, est le responsable du traitement des données collectées via le questionnaire "CyberCheck" (ci-après, le "Service").
+            </p>
+            <h3 class="text-xl font-bold text-white pt-2">2. Données Personnelles Collectées</h3>
+            <p class="text-sm leading-relaxed">
+                Nous collectons les données suivantes (ci-après les "Données") :
+            </p>
+            <ul class="list-disc list-inside ml-4 text-sm space-y-1">
+                <li><span class="font-semibold">Données d'identification et de contact :</span> Adresse e-mail professionnelle, numéro de téléphone mobile.</li>
+                <li><span class="font-semibold">Données professionnelles :</span> Fonction/Poste, nom de l'entreprise, effectif, chiffre d'affaires, secteur d'activité (issues du questionnaire).</li>
+                <li><span class="font-semibold">Données de diagnostic :</span> Réponses au questionnaire NIS2 et score de vulnérabilité calculé.</li>
+            </ul>
+            <h3 class="text-xl font-bold text-white pt-2">3. Finalités et Base Légale du Traitement</h3>
+            <p class="text-sm leading-relaxed">
+                Le traitement de vos Données est fondé sur votre <span class="font-semibold text-blue-400">Consentement</span> explicite (Article 6.1 a du RGPD), donné via la case à cocher obligatoire.
+            </p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left rounded-lg overflow-hidden border border-slate-700">
+                    <thead class="text-xs text-white uppercase bg-slate-700">
+                        <tr>
+                            <th scope="col" class="py-3 px-6">Finalité du Traitement</th>
+                            <th scope="col" class="py-3 px-6">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="bg-slate-800 border-b border-slate-700">
+                            <td class="py-3 px-6 font-medium text-white">A. Envoi du Diagnostic NIS2</td>
+                            <td class="py-3 px-6">Fournir le rapport d'audit (PDF) et les recommandations personnalisées suite au questionnaire.</td>
+                        </tr>
+                        <tr class="bg-slate-800 border-b border-slate-700">
+                            <td class="py-3 px-6 font-medium text-white">B. Prospection Commerciale et Revente</td>
+                            <td class="py-3 px-6 text-red-400 font-bold">
+                                Partager ou revendre vos Données à des tiers, y compris des courtiers, des partenaires commerciaux spécialisés en cybersécurité ou des agences de marketing B2B, pour leurs propres fins de prospection commerciale.
+                            </td>
+                        </tr>
+                        <tr class="bg-slate-800">
+                            <td class="py-3 px-6 font-medium text-white">C. Amélioration du Service</td>
+                            <td class="py-3 px-6">Analyser les tendances de conformité et améliorer la qualité de notre outil et de nos offres.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <h3 class="text-xl font-bold text-white pt-2">4. Destinataires et Transfert des Données (Revente)</h3>
+            <p class="text-sm leading-relaxed">
+                Vos Données sont susceptibles d'être communiquées à :
+            </p>
+            <ul class="list-disc list-inside ml-4 text-sm space-y-1">
+                <li>Nos services internes (marketing, commercial).</li>
+                <li>
+                    <span class="font-semibold text-red-400">Des Partenaires Commerciaux Tiers :</span> Conformément à la finalité B (Prospection Commerciale et Revente), nous transmettons vos Données aux **courtiers en données, aux sociétés de conseil en cybersécurité (MSP) et à d'autres partenaires commerciaux** souhaitant vous contacter pour des services de mise en conformité ou des solutions de sécurité. Ces partenaires deviennent eux-mêmes responsables de traitement pour leur prospection.
+                </li>
+                <li>Des sous-traitants techniques (hébergement, CRM, Webhooks Make.com).</li>
+            </ul>
+            <p class="text-xs leading-relaxed mt-3">
+                Nous ne transférons pas vos Données en dehors de l'Union Européenne (UE) ou de l'Espace Économique Européen (EEE), sauf si un partenaire tiers s'y engage contractuellement et garantit le respect des Clauses Contractuelles Types (CCT) de la Commission Européenne.
+            </p>
+            <h3 class="text-xl font-bold text-white pt-2">5. Durée de Conservation</h3>
+            <p class="text-sm leading-relaxed">
+                Vos Données sont conservées pendant la durée nécessaire à la réalisation des finalités décrites ci-dessus. Pour la finalité de Prospection Commerciale et de Revente (Finalité B), les Données sont conservées pendant <span class="font-semibold text-white">trois (3) ans</span> à compter de la collecte ou du dernier contact entrant, puis supprimées ou anonymisées, sauf demande d'effacement de votre part.
+            </p>
+            <h3 class="text-xl font-bold text-white pt-2">6. Vos Droits RGPD</h3>
+            <p class="text-sm leading-relaxed">
+                Conformément à la réglementation, vous disposez des droits suivants concernant vos Données :
+            </p>
+            <ul class="list-disc list-inside ml-4 text-sm space-y-1">
+                <li><span class="font-semibold">Droit d'accès</span> (savoir quelles données nous traitons).</li>
+                <li><span class="font-semibold">Droit de rectification</span> (mettre à jour vos données).</li>
+                <li><span class="font-semibold">Droit à l'effacement</span> (demander l'oubli de vos données, notamment pour la finalité B).</li>
+                <li>Droit à la limitation du traitement.</li>
+                <li><span class="font-semibold">Droit d'opposition</span> au traitement de vos données, y compris la prospection commerciale.</li>
+                <li>Droit à la portabilité de vos données.</li>
+                <li><span class="font-semibold">Droit de retirer votre consentement</span> à tout moment, sans que cela n'affecte la licéité du traitement fondé sur le consentement effectué avant ce retrait.</li>
+            </ul>
+            <p class="text-sm leading-relaxed mt-4">
+                Pour exercer ces droits, veuillez nous contacter à l'adresse e-mail suivante : <span class="font-semibold text-blue-400">[VOTRE ADRESSE E-MAIL DE CONTACT RGPD]</span>.
+            </p>
+            <p class="text-xs leading-relaxed pt-2 border-t border-slate-700 mt-4">
+                Vous avez également le droit d'introduire une réclamation auprès de la CNIL (Commission Nationale de l'Informatique et des Libertés) en France.
+            </p>
+        </div>
+        <p class="mt-4 text-xs text-red-400">Note: Ce texte est une ébauche et doit être validé par un conseiller juridique.</p>
+    </section>
+
+    <script>
+        // --- SUPABASE CONFIGURATION ---
+        // 🟢 CONFIGURATION MISE À JOUR AVEC VOS CLÉS
+        const SUPABASE_URL = 'https://tojrymqodbivxpicviff.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_3QUnx9VckCcxLDXfJ3Dmzg_00hxvi8t';
+        const TABLE_NAME = 'leads_nis2'; // Nom de la table que vous avez créé
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ------------------------------
+
+        // État de l'application
+        let currentStep = 0;
+        const totalSteps = 4; // Total des phases (0 à 4)
+        const responses = {}; // Stocke les réponses des utilisateurs
+
+        // Emails gratuits à rejeter pour la qualification B2B
+        const freeEmailDomains = [
+            '@gmail.com', '@hotmail.com', '@outlook.com', '@yahoo.com', 
+            '@orange.fr', '@laposte.net', '@free.fr', '@aol.com', '@icloud.com'
+        ];
+
+        // --- Fonctions de Navigation et d'UX ---
+        
+        function updateProgress() {
+            const percentage = (currentStep / (totalSteps - 1)) * 100;
+            const progressBar = document.getElementById('progress-bar');
+            if (progressBar) {
+                progressBar.style.width = `${percentage}%`;
+            }
+        }
+
+        function showStep(stepIndex) {
+            document.querySelectorAll('.step').forEach((step, index) => {
+                step.classList.toggle('hidden', index !== stepIndex);
+            });
+            currentStep = stepIndex;
+            updateProgress();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function checkStepCompletion(stepIndex) {
+            let completed = true;
+            const stepDiv = document.getElementById(`step-${stepIndex}`);
+            if (!stepDiv) return false;
+
+            // Pour les étapes 1 et 2 (questions à cartes)
+            stepDiv.querySelectorAll('[data-q]').forEach(qDiv => {
+                const qName = qDiv.getAttribute('data-q');
+                if (!responses[qName]) {
+                    completed = false;
+                }
+            });
+
+            const nextButtonId = `btn-step-${stepIndex}`;
+            const nextButton = document.getElementById(nextButtonId);
+            if (nextButton) {
+                nextButton.disabled = !completed;
+                nextButton.classList.toggle('opacity-50', !completed);
+                nextButton.classList.toggle('cursor-not-allowed', !completed);
+            }
+            return completed;
+        }
+
+        function nextStep(targetStep) {
+            if (targetStep === 3) {
+                // Passage à la Gate : simuler le chargement
+                showStep(3);
+                document.getElementById('loading-animation').classList.remove('hidden');
+                document.getElementById('lead-gate').classList.add('hidden');
+                document.getElementById('loading-text').textContent = "Analyse des réponses en cours...";
+                
+                // Animation de chargement
+                setTimeout(() => {
+                    document.getElementById('loading-text').textContent = "Calcul du score de vulnérabilité...";
+                }, 1000);
+                setTimeout(() => {
+                    document.getElementById('loading-text').textContent = "Génération du rapport...";
+                }, 2000);
+                
+                // Afficher la Gate après 3 secondes
+                setTimeout(() => {
+                    document.getElementById('loading-animation').classList.add('hidden');
+                    document.getElementById('lead-gate').classList.remove('hidden');
+                }, 3000);
+
+            } else {
+                showStep(targetStep);
+            }
+        }
+
+
+        // --- Fonctions de Scoring et de Logique Métier ---
+
+        function calculateScoreAndStatus() {
+            let score = 100; // Commence à 100
+            let isEssential = false;
+            let isImportant = false;
+            let recommendations = [];
+
+            // LOGIQUE NIS2 (Phase 1)
+            const effectif = responses.effectif;
+            const ca = responses.ca;
+            const secteur = responses.secteur;
+            const isCriticalSector = secteur !== 'Autre';
+
+            if (isCriticalSector) {
+                if (effectif === '>=250' || ca === '>50M') {
+                    isEssential = true;
+                } else if (effectif === '50-249' || ca === '10M-50M') {
+                    isImportant = true;
+                }
+            }
+            // Si non essentiel/important, on reste sur "Vigilance Requise" pour le lead gen
+            let nis2StatusText = "Vigilance Requise (Hors champ)";
+            if (isEssential) {
+                nis2StatusText = "Entité Essentielle (Probabilité 95%)";
+            } else if (isImportant) {
+                nis2StatusText = "Entité Importante (Probabilité 90%)";
+            }
+
+            // LOGIQUE DE VULNÉRABILITÉ (Phase 2)
+            // Q4: RTO Ransomware -> PasDePlan est critique
+            if (responses.rto === 'PasDePlan') {
+                score -= 30;
+                recommendations.push("Audit de votre Plan de Reprise d'Activité (PRA) et test des sauvegardes déconnectées.");
+            } else if (responses.rto === '24h-48h') {
+                score -= 10;
+            }
+
+            // Q5: Qui gère la Cyber -> Dirigeant_NonDedicace est critique/Lead Gold
+            if (responses.gestion_cyber === 'Dirigeant_NonDedicace') {
+                score -= 25;
+                recommendations.push("Besoin urgent de déléguer la sécurité à un expert (interne ou MSP).");
+            } else if (responses.gestion_cyber === 'MSP_Externe') {
+                recommendations.push("Vérifiez l'alignement de votre MSP actuel avec les nouvelles exigences NIS2.");
+            }
+
+            // Q6: MFA -> Non est critique
+            if (responses.mfa === 'Non') {
+                score -= 35;
+                recommendations.push("URGENCE : Activation immédiate de l'Authentification Multifacteur (MFA). Risque critique.");
+            } else if (responses.mfa === 'Partiel') {
+                score -= 10;
+                recommendations.push("Étendre le MFA à *tous* les accès distants, y compris les VPN et les outils cloud.");
+            }
+
+            // Assurer que le score ne soit pas négatif et toujours inférieur à 70 si le lead a franchi la phase 3
+            score = Math.max(10, Math.min(score, 70));
+
+            return {
+                finalScore: score,
+                status: nis2StatusText,
+                recommendations: recommendations
+            };
+        }
+
+        // 🟢 FONCTION : ENVOI À SUPABASE
+        async function sendToSupabase(payload) {
+            try {
+                const { data, error } = await supabase
+                    .from(TABLE_NAME)
+                    .insert([payload]);
+
+                if (error) {
+                    console.error("❌ ERREUR SUPABASE:", error);
+                    alert("Erreur lors de l'enregistrement des données. Veuillez réessayer. (Vérifiez la RLS)");
+                    return false;
+                } else {
+                    console.log("✅ LEAD ENREGISTRÉ DANS SUPABASE:", data);
+                    return true;
+                }
+            } catch (e) {
+                console.error("❌ ERREUR CATCH SUPABASE:", e);
+                return false;
+            }
+        }
+
+        async function displayResults(email, phone, fonction) {
+            const results = calculateScoreAndStatus();
+            
+            // 1. Création du Payload
+            const leadPayload = {
+                email: email,
+                phone: phone,
+                fonction: fonction,
+                // Le reste des données du questionnaire est stocké dans un champ JSONB
+                company_details: {
+                    questionnaire_responses: responses,
+                    analysis: {
+                        nis2_status: results.status,
+                        vulnerability_score: results.finalScore
+                    }
+                }
+            };
+            
+            // 2. Envoi à Supabase
+            const success = await sendToSupabase(leadPayload);
+
+            if (!success) {
+                // Si l'envoi échoue, on peut arrêter ici ou afficher un message d'erreur
+                return; 
+            }
+
+            // 3. Mise à jour du Dashboard (uniquement si l'envoi réussit)
+            document.getElementById('nis2-status').textContent = results.status;
+            
+            const scoreBar = document.getElementById('score-bar');
+            const scoreText = document.getElementById('score-text');
+            const finalEmail = document.getElementById('final-email');
+            const recommendationsList = document.getElementById('recommendations');
+            
+            const scorePercentage = results.finalScore;
+            scoreBar.style.width = `${scorePercentage}%`;
+            scoreText.textContent = `${scorePercentage} / 100`;
+            finalEmail.textContent = email;
+
+            // Couleur de la jauge
+            let barColor = 'var(--color-alert)';
+            if (scorePercentage > 60) {
+                barColor = 'rgb(34 197 94)'; // Green-500
+            } else if (scorePercentage > 35) {
+                barColor = 'rgb(253 186 116)'; // Amber-400
+            }
+            scoreBar.style.backgroundColor = barColor;
+
+            // Mise à jour des recommandations
+            recommendationsList.innerHTML = '';
+            recommendationsList.innerHTML = `<li>Votre rapport PDF détaillé a été envoyé à l'adresse <span class="font-bold text-blue-400">${email}</span>.</li>`;
+            results.recommendations.forEach(rec => {
+                const li = document.createElement('li');
+                li.textContent = rec;
+                recommendationsList.appendChild(li);
+            });
+            
+            showStep(4);
+        }
+
+        // --- Initialisation des Listeners ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Listeners pour les cartes de sélection (Phase 1 & 2)
+            document.querySelectorAll('.card-select').forEach(card => {
+                card.addEventListener('click', function() {
+                    const qDiv = this.closest('[data-q]');
+                    const qName = qDiv.getAttribute('data-q');
+                    const value = this.getAttribute('data-value');
+
+                    // Désélectionner toutes les cartes de cette question
+                    qDiv.querySelectorAll('.card-select').forEach(c => c.classList.remove('selected'));
+                    
+                    // Sélectionner la carte cliquée
+                    this.classList.add('selected');
+                    
+                    // Stocker la réponse
+                    responses[qName] = value;
+
+                    // Vérifier la complétion de l'étape
+                    if (qName === 'secteur') {
+                        checkStepCompletion(1);
+                    }
+                    if (qName === 'mfa') {
+                        checkStepCompletion(2);
+                    }
+                });
+            });
+
+            // 2. Listener pour le Formulaire de Lead (Phase 3)
+            const leadForm = document.getElementById('lead-form');
+            leadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const emailInput = document.getElementById('email');
+                const email = emailInput.value.toLowerCase().trim();
+                const phone = document.getElementById('phone').value.trim();
+                const fonction = document.getElementById('fonction').value;
+                const errorDiv = document.getElementById('validation-error');
+                
+                // Validation de l'email B2B
+                const isFreeEmail = freeEmailDomains.some(domain => email.endsWith(domain));
+
+                if (isFreeEmail) {
+                    errorDiv.textContent = "Veuillez utiliser une adresse e-mail professionnelle (les e-mails gratuits sont rejetés).";
+                    errorDiv.classList.remove('hidden');
+                    emailInput.focus();
+                    return;
+                }
+
+                errorDiv.classList.add('hidden');
+                
+                // Si la validation passe, envoyer les données et afficher les résultats
+                displayResults(email, phone, fonction);
+            });
+
+            // Initialiser l'affichage sur la première étape
+            showStep(0);
+        });
+    </script>
+</body>
+</html>
