@@ -1,0 +1,159 @@
+PolyTrack Feature Review
+========================
+
+This document inventories every feature delivered in the PolyTrack SaaS codebase, including its data foundations, backend services, UI components, and the single dashboard page. Each section explains how the feature works and clarifies what inputs it expects and the outputs or side effects it produces.
+
+1. Domain Types (`types/index.ts`)
+----------------------------------
+Feature: Strict TypeScript contracts that define all objects exchanged across the app.
+Input: These interfaces are imported wherever type-checked data is required (backend logic, UI components, forms).
+Output: Compile-time guarantees for the following objects:
+- `UserProfile`: `{ id: string; is_pro: boolean; subscription_id: string | null; }`
+- `AlertCondition`: metric (`'volume' | 'probability' | 'price'`), operator (`'gt' | 'lt'`), value (number).
+- `AlertRule`: logical operator (`'AND' | 'OR'`) with a list of `AlertCondition`s.
+- `Alert`: identifiers, ownership, market slug, type (`'PRESET' | 'CUSTOM'`), optional preset/custom data, and `last_triggered_at` timestamp.
+The output of this feature is a shared contract that prevents mismatched schemas between the frontend form builder, API routes, and Supabase interactions.
+
+2. Database Foundations (`supabase/init.sql`)
+---------------------------------------------
+Features implemented via SQL migrations:
+- `profiles` table tied to `auth.users`, storing `is_pro`, optional `subscription_id`, and timestamp columns.
+- `alerts` table with ownership (`user_id`), market slug, `type`, `preset_type`, `custom_settings` JSONB payload, and trigger timestamps.
+- Trigger `set_updated_at` keeps `updated_at` current on both tables.
+- Constraint `preset_requires_type` guarantees presets carry a preset type and customs do not.
+- Row Level Security ensures every query automatically filters to `auth.uid()` using `alerts_select` and `alerts_modify` policies.
+Input: Run the SQL in Supabase to provision schemas.
+Output: Persistent schema that enforces data integrity and per-user isolation for alerts.
+
+3. Environment Configuration (`.env.local`)
+-------------------------------------------
+Feature: Declares all environment variables the app consumes.
+Input: Developers/operators fill in actual keys for Supabase (URL, anon key, service role), PayPal (client ID, plan ID), Resend, and the cron secret.
+Output: Runtime configuration consumed by Next.js server components, API routes, and client components that rely on `process.env`.
+
+4. Polymarket Data Client (`lib/polymarket.ts`)
+-----------------------------------------------
+Feature: `getMarketData(slug: string)` fetches market status from the Gamma API.
+Input: `slug` identifying the Polymarket event.
+Process:
+- Performs a `fetch` to `https://gamma-api.polymarket.com/events?slug=<slug>` with JSON headers.
+- Validates HTTP status, event existence, and that the first market includes outcomes.
+- Normalizes every outcome into `{ id, label, price, probability, volume }`, sorting by volume (then probability) and keeping the top two for analytics.
+- Determines current favorite outcome ID and total volume (market volume if supplied, otherwise sum of tracked outcomes).
+Output: `MarketData` object consumed by the cron route: `{ slug, title, totalVolume, outcomes: MarketOutcome[], favoriteOutcomeId }`. Errors throw when the API fails, no event exists, or outcomes are missing.
+
+5. Scheduled Cron Brain (`app/api/cron/route.ts`)
+-------------------------------------------------
+Feature: Server route that processes alerts, evaluates market conditions, notifies users, and updates Supabase.
+Inputs:
+- HTTP `POST` with header `Authorization: Bearer <CRON_SECRET>`; the body is unused. Missing or wrong token returns 401.
+- Environment prerequisites: Supabase URL + service role key, Resend API key.
+Process:
+1. Authorization: `isCronAuthorized` compares the bearer token to `process.env.CRON_SECRET`.
+2. Data fetch: `fetchActiveAlerts` loads every alert via the Supabase admin client.
+3. For each alert:
+   - `fetchMarket` (cached per slug) retrieves the Gamma market snapshot.
+   - `evaluateAlert` picks the correct evaluator:
+     * Whale preset: compares cached volume vs current (`> 20% increase`) and simulates large trades when any outcome volume ≥ 10,000; output is a boolean trigger.
+     * Flip preset: compares the cached favorite outcome ID with the current favorite; triggers on change after both values exist.
+     * Custom: applies `AND`/`OR` logic over all conditions, where metrics map to `totalVolume`, primary outcome probability, or primary outcome price, and operators compare via `>` or `<`.
+   - Recipient resolution: `resolveUserEmail` uses Supabase admin to fetch the user's email (memoized per run). Missing email skips notification.
+   - Notification: Sends an email via Resend with subject/body built from alert and market data.
+   - Persistence: `markAlertTriggered` updates `last_triggered_at` in Supabase with ISO timestamp.
+Outputs:
+- Success response `{ success: true, processed: <count> }` when alerts are scanned (even if zero triggered events).
+- Error response `{ error: 'CRON_FAILED' }` with HTTP 500 when the process throws.
+Side effects: Email dispatches, RLS-bypassing updates to alert rows, and in-memory caches for volume, favorite, markets, and emails to optimize repeated evaluations within a single execution.
+
+6. PayPal Success Webhook (`app/api/paypal/success/route.ts`)
+-------------------------------------------------------------
+Feature: Authenticated route called client-side once PayPal approves a subscription.
+Input:
+- HTTP `POST` body `{ subscriptionID: string }` sent by the client.
+- Relies on cookies-authenticated Supabase session of the currently logged-in user.
+Process:
+1. Validate `subscriptionID` is a non-empty string; otherwise return `400` with `{ error: 'INVALID_SUBSCRIPTION_ID' }`.
+2. Use `createRouteHandlerClient` with request cookies to fetch the signed-in user. Missing session triggers `401` with `{ error: 'UNAUTHORIZED' }`.
+3. Update the user's `profiles` row where `id` equals the Supabase user ID, setting `is_pro = true` and `subscription_id = subscriptionID`.
+Output: `{ success: true }` on success, or `{ error: 'PROFILE_UPDATE_FAILED' }` with HTTP 500 if Supabase rejects the update.
+Side effect: Elevates the user to Pro so UI restrictions lift immediately after client refresh.
+
+7. Alert Builder Component (`components/AlertBuilder.tsx`)
+---------------------------------------------------------
+Feature: Client-side form builder that constructs valid `AlertRule` JSON for custom alerts.
+Inputs (props):
+- `defaultValue?: AlertRule` (pre-populates operator/conditions when editing existing data).
+- `onRuleChange?: (rule: AlertRule) => void` optional callback invoked whenever form state changes.
+- `disabled?: boolean` toggles interactivity.
+- `name?: string` for the hidden input field (default `custom_settings`).
+Process:
+- Maintains local state for rule operator (`AND`/`OR`) and a list of condition drafts, each with stable `id` values generated via `crypto.randomUUID` or Math random fallback.
+- Renders rows containing metric selector (Volume, Probability, Prix), operator selector (`>` or `<`), and numeric value input.
+- Allows adding new conditions and removing existing ones (last condition cannot be removed).
+- Serializes the current rule into a hidden `<input name="custom_settings" value='<JSON>' />` so parent `<form>` submissions automatically include clean JSON.
+Outputs:
+- Visual UI for rule creation embedded in forms.
+- Hidden serialized JSON matching the `AlertRule` interface.
+- Optional callback invocation to inform parent components about changes.
+
+8. PayPal Subscription Button (`components/PayPalButton.tsx`)
+-------------------------------------------------------------
+Feature: Client component that loads the PayPal SDK and renders a subscription button.
+Inputs:
+- `planId: string` – PayPal plan configured for PolyTrack subscriptions.
+- `disabled?: boolean` — disables the buttons when true.
+- Environment: `NEXT_PUBLIC_PAYPAL_CLIENT_ID` must be defined; otherwise the component renders an inline error string.
+Process:
+1. Wraps the UI in `PayPalScriptProvider` with `intent: 'subscription'` and `vault: true` so PayPal handles recurring payments.
+2. `PayPalButtons` uses `createSubscription` callback to create the subscription with the provided plan ID.
+3. `onApprove` handles PayPal confirmation: ensures `subscriptionID` exists, POSTs `{ subscriptionID }` to `/api/paypal/success`, and refreshes the router to reload profile data. Errors show inline text and reset processing state.
+4. `onError` logs to console and displays a generic message.
+Outputs:
+- PayPal-rendered subscribe UI when configured.
+- Calls to the success route on approval, resulting in Pro upgrades.
+- User-facing error messages for missing configuration, API failures, or PayPal issues.
+
+9. Dashboard Page (`app/dashboard/page.tsx`)
+--------------------------------------------
+Feature: Authenticated control center for end users with alert management, creation forms, PayPal upsell, and server actions.
+Inputs:
+- Requires a Supabase session cookie; otherwise `redirect('/login')` occurs.
+- Server environment must provide `PAYPAL_PLAN_ID` for PayPal CTA.
+- Uses Supabase profile and alerts tables for data.
+Server Actions:
+1. `createPresetAlert(formData)`:
+   - Inputs: `market_slug` (string), `preset_type` (`'WHALE'` or `'FLIP'`).
+   - Validates presence, ensures the user is logged in, and checks `canCreateAlert`. On success inserts a preset alert row and revalidates `/dashboard`.
+   - Output: No direct response (Next.js server action); the page revalidates and shows the new alert if allowed.
+2. `createCustomAlert(formData)`:
+   - Inputs: `market_slug` and `custom_settings` JSON emitted by `AlertBuilder`.
+   - Parses JSON into an `AlertRule`, validates at least one condition, enforces plan limit via `canCreateAlert`, inserts the custom alert, and revalidates.
+   - Output: Updated UI via revalidation.
+3. `deleteAlert(formData)`:
+   - Input: `alert_id` string belonging to the user.
+   - Deletes the alert row scoped to `user_id` and revalidates, regardless of plan status.
+4. Helper `canCreateAlert` counts alerts for the user and allows creation only if `is_pro` is true or the current count is below `MAX_FREE_ALERTS` (1).
+
+Page Layout Features:
+- Header showing the dashboard title and descriptive copy.
+- Left column (“Alertes Actives”): lists every alert with slug, type (Preset + subtype or Custom), optional last trigger timestamp, and a delete button. It also badges the plan type (Free vs Pro).
+- Right column (“Créer une nouvelle alerte”): contains either the PayPal upgrade prompt (when free users hit the limit) or tabbed forms:
+  * `Quick Preset` tab: Form with slug input and preset selector; posts to `createPresetAlert`.
+  * `Custom Builder` tab: Form with slug input plus the `AlertBuilder` UI; posts to `createCustomAlert`.
+- PayPal CTA: When alert limit is reached for Free users and `PAYPAL_PLAN_ID` exists, the header section displays `<PayPalButton planId={planId} />` so users can upgrade immediately.
+- Limit notice: Free users hitting the limit also see an amber warning card explaining the restriction.
+Inputs/Outputs Summary per Page Feature:
+- Alert list input: Supabase `alerts` data for the current user. Output: Rendered cards and delete action per alert.
+- Preset form input: Market slug + preset selection; output: new preset alert row (if allowed) visible after refresh.
+- Custom form input: Market slug + JSON rule; output: new custom alert row (if allowed).
+- PayPal section input: `PAYPAL_PLAN_ID` + PayPal client ID; output: subscription flow culminating in `profiles.is_pro = true`, unlocking more alerts.
+
+10. Overall Flow
+----------------
+- Users authenticate via Supabase (outside the provided files).
+- Free users can maintain exactly one alert; Pro users have unlimited alerts once PayPal upgrades their profile.
+- Alerts reference Polymarket markets by slug and can be preset (Whale, Flip) or custom rule-based.
+- A scheduled job calls `/api/cron` with the cron secret to fetch Gamma data, evaluate alerts, send Resend emails upon triggers, and update timestamps.
+- AlertBuilder and server actions ensure alert data stored in Supabase conforms to the schema enforced by `types/index.ts` and the database constraints.
+
+This review should equip any engineer or operator with a full understanding of every feature, page, input, and output currently implemented in PolyTrack.
